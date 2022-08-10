@@ -4,6 +4,8 @@ openEuler（以下简称oE） RISC-V 发行版操作系统使用基于oE上游�
 
 ## 1. 运行步骤
 
+首先进行下载`git clone git@github.com:YunxiangLuo/mugen-riscv.git`
+
 1. 运行测试用例，首先去掉结果failed的测试用例（也需结合日志文件判断，排除例如超时的简单问题）
 2. 运行单个测试套或测试例可直接用mugen.sh，使用方法参考mugen官方使用方法，如下。
 
