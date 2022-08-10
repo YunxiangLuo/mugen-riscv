@@ -1,5 +1,7 @@
 # openEuler RISC-V 发行版操作系统自动化测试工具
 
+开发状态：截至20220810，目前处于开发中，可使用命令`python3 runtest.py -l lists/list_riscv`运行从openEuler mugen项目遴选出的部分RISC-V操作系统发行版镜像的预装包，包设置在`lists/list_riscv`中。
+
 openEuler（以下简称oE） RISC-V 发行版操作系统使用基于oE上游社区的mugen测试框架根据oE RISC-V 发行版操作系统自定义的镜像预装包和基础支持包二次开发mugen-riscv测试脚本和测试用例。mugen-riscv测试用例移植的第一步是对mugen原生的测试用例进行筛选，之后才能开始对有问题的测试用例进行修复。mugen-riscv测试用例筛选本质上就是将通过运行测试查看结果，将mugen X86/AArch64中可直接用于RISC-V oE测试的测试用例筛选出来。筛选的对象包括所有mugen中的测试用例（前提是其测的是目前的RISC-V oE有的功能/软件），系统的基本功能优先。
 
 ## 1. 运行步骤
