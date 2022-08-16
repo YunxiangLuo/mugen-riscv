@@ -6,6 +6,9 @@
             "name": "oe_test_who"
         },
         {
+            "name": "oe_test_uname"
+        },
+        {
             "name": "oe_test_versioninfo"
         },
         {
@@ -28,6 +31,9 @@
         },
         {
             "name": "oe_test_system_log_basic"
+        },
+        {
+            "name": "oe_test_system_log_dmesg"
         },
         {
             "name": "oe_test_server_vsftpd_restart"

@@ -1,3 +1,4 @@
+from dataclasses import replace
 import os
 import sys
 import json
@@ -17,7 +18,7 @@ class TestEnv():
 
     def __init__(self):
         self.is_cleared = 0
-        self.suite_cases_path = "./suite2cases"
+        self.suite_cases_path = "./suite2cases/"
         self.suite_list = os.listdir(self.suite_cases_path)
         self.suite_list_mugen = []
         self.suite_list_riscv = []
@@ -54,6 +55,39 @@ class TestEnv():
             os.system("mkdir logs_failed")
         self.is_cleared = 1
 
+    def AnalyzeMissingTests(self):
+        for riscv_suite in self.suite_list_riscv:
+            if riscv_suite in self.suite_list_mugen:
+                mugen_file = open(self.suite_cases_path+riscv_suite+".json",'r')
+                riscv_file = open(self.suite_cases_path+riscv_suite+"-riscv.json",'r')
+                mugen_data = json.loads(mugen_file.read())
+                riscv_data = json.loads(riscv_file.read())
+                riscv_cases = []
+                start_tag = 0
+                for testcase in riscv_data['cases']:
+                    riscv_cases.append(testcase['name'])
+                for testcase in mugen_data['cases']:
+                    if testcase['name'] not in riscv_cases:
+                        if start_tag == 0:
+                            start_tag = 1
+                            print("Test suite: "+riscv_suite+"-riscv")
+                        print("Missing test case: "+testcase['name'])
+
+    def AnalyzeMissingTests(self,ana_suite):
+        if (ana_suite in self.suite_list_riscv) and (ana_suite in self.suite_list_mugen):
+            mugen_file = open(self.suite_cases_path+ana_suite+".json",'r')
+            riscv_file = open(self.suite_cases_path+ana_suite+"-riscv.json",'r')
+            mugen_data = json.loads(mugen_file.read())
+            riscv_data = json.loads(riscv_file.read())
+            riscv_cases = []
+            print("Test suite: "+ana_suite+"-riscv")
+            for testcase in riscv_data['cases']:
+                riscv_cases.append(testcase['name'])
+            for testcase in mugen_data['cases']:
+                    if testcase['name'] not in riscv_cases:
+                        print("Missing test case: "+testcase['name'])
+
+
 class TestTarget():
     """
     Test targets
@@ -80,6 +114,11 @@ class TestTarget():
         print("total test targets num = "+str(len(self.test_list)))
 
     def CheckTargets(self,suite_list_mugen,suite_list_riscv,mugen_native = False):
+        conf_path = "./conf/env.json"
+        if not os.path.exists(conf_path):
+            print("环境配置文件不存在，请先配置环境信息.")
+            sys.exit(1)
+
         self.unaval_test = []
         for test_target in self.test_list :
             if(((test_target not in suite_list_riscv) or mugen_native) and (test_target not in suite_list_mugen)):
@@ -119,6 +158,7 @@ class TestTarget():
             LogError("Targets are not checked!")
             return 1
         else:
+            test_res = []
             for test_target in self.test_list :
                 print("Start to test target: "+test_target)
                 if detailed == False:
@@ -137,20 +177,22 @@ class TestTarget():
                             os.system("mkdir logs_failed/"+test_target+"/"+failed_test+"/")
                             os.system("cp logs/"+test_target+"/"+failed_test+"/*.log logs_failed/"+test_target+"/"+failed_test+"/")
 
-                    temp_success = []
+                    temp_succeed = []
                     try:
-                        temp_success = os.listdir("results/"+test_target+"/succeed")
+                        temp_succeed = os.listdir("results/"+test_target+"/succeed")
                     except:
                         success_num = 0
                         self.success_test_num.append(success_num)
                     else:
-                        success_num = len(temp_success)
+                        success_num = len(temp_succeed)
                         self.success_test_num.append(success_num)
+                    target_res = {'suite': test_target,'failed': temp_failed,'succeeded': temp_succeed}
                 else:
                     json_file = open("suite2cases/"+test_target+".json",'r')
                     json_raw = json_file.read()
                     json_data = json.loads(json_raw)
                     temp_failed = []
+                    temp_succeed = []
                     success_num = 0
                     failed_num = 0
                     for testcasedict in json_data['cases']:
@@ -164,33 +206,71 @@ class TestTarget():
                             os.system("mkdir logs_failed/"+test_target+"/"+testcase+"/")
                             os.system("cp logs/"+test_target+"/"+testcase+"/*.log logs_failed/"+test_target+"/"+testcase+"/")
                         if(os.system("ls results/"+test_target+"/succeed/"+testcase+" &> /dev/null") == 0):
+                            temp_succeed.append(testcase)
                             success_num += 1
+                    target_res = {'suite': test_target,'failed': temp_failed,'succeed': temp_succeed}
 
-                        
+                test_res.append(target_res)
                     
                 print("Target "+test_target+" tested "+str(success_num+failed_num)+" cases, failed "+str(failed_num)+" cases")
                 if(detailed == 1):
                     for failed_test in temp_failed :
                         print("Failed test: "+failed_test)
+                
 
             self.is_tested = 1
+            return test_res
 
+class SuiteGenerator(TestEnv):
+    def __init__(self):
+        super().__init__()
+        self.output_path = 'suite2cases_out/'
+        if self.output_path.replace('/','') not in os.listdir("."):
+            os.system("mkdir "+self.output_path)
+
+    def GenJson(self,test_res):
+        print("Json file generated at "+self.output_path)
+        for target in test_res:
+            suite_file = open(self.suite_cases_path+target['suite']+'.json','r')
+            suite_json = json.loads(suite_file.read())
+            mugen_cases = suite_json['cases']
+            out_cases = [cases for cases in mugen_cases if cases['name'] in target['succeed']]
+            suite_json['cases'] = out_cases
+            out_file = open(self.output_path+target['suite']+'.json','w')
+            out_file.write(json.dumps(suite_json,indent=4))
+            print(self.output_path+target['suite']+'.json')
+        
+            
 
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l',required=True,metavar='list_file',help='Specify the test targets list',dest='list_file')
+    parser.add_argument('-l',metavar='list_file',help='Specify the test targets list',dest='list_file')
     parser.add_argument('-m','--mugen',action='store_true',help='Run native mugen test suites')
+    parser.add_argument('-a','--analyze',action='store_true',help='Analyze missing testcases')
+    parser.add_argument('-s',metavar='ana_suite',help='Analyze missing testcases of specific testsuite',dest='ana_suite')
+    parser.add_argument('-g','--generate',action='store_true',help='Generate testsuite json after running test')
     args = parser.parse_args()
 
     test_env = TestEnv()
     test_env.ClearEnv()
     test_env.PrintSuiteNum()
 
-    test_target = TestTarget(list_file_name=args.list_file)
-    test_target.PrintTargetNum()
-    test_target.CheckTargets(suite_list_mugen=test_env.suite_list_mugen,suite_list_riscv=test_env.suite_list_riscv,mugen_native=args.mugen)
-    test_target.PrintUnavalTargets()
-    test_target.PrintAvalTargets()
-    test_target.Run(detailed=True)
+    if args.analyze is True:
+        if args.ana_suite is not None:
+            test_env.AnalyzeMissingTests(args.ana_suite)
+        else:
+            test_env.AnalyzeMissingTests()
+
+    if args.list_file is not None:
+        test_target = TestTarget(list_file_name=args.list_file)
+        test_target.PrintTargetNum()
+        test_target.CheckTargets(suite_list_mugen=test_env.suite_list_mugen,suite_list_riscv=test_env.suite_list_riscv,mugen_native=args.mugen)
+        test_target.PrintUnavalTargets()
+        test_target.PrintAvalTargets()
+        test_res = test_target.Run(detailed=True)
+        if args.generate == True:
+            gen = SuiteGenerator()
+            gen.GenJson(test_res)
+
