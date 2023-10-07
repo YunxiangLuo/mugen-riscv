@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import argparse
+import re
 
 def LogInfo(log_content=""):
     print("INFO:  "+log_content)
@@ -183,6 +184,13 @@ class TestTarget():
                         os.system("sudo bash mugen.sh -f "+test_target+" -r "+testcase+" -x 2>&1 | tee -a exec.log")
                     else:
                         os.system("sudo bash mugen.sh -f "+test_target+" -r "+testcase+" 2>&1 | tee -a exec.log")
+                    for log in  os.listdir('logs/'+test_target+'/'+testcase):
+                        with open('logs/'+test_target+'/'+testcase+'/'+log, "r", encoding='utf-8', errors='ignore') as log_data:
+                            log_found = re.search(r'See "systemctl status (.*)" and "journalctl -xe(.*)" for details.' , log_data.read())
+                            if log_found is not None:
+                                os.system("sudo journalctl -xe --no-pager > logs/"+test_target+'/'+testcase+"/journelctl_for_"+log)
+                                os.system("sudo systemctl status "+log_found.group(1)+" --no-pager > logs/"+test_target+'/'+testcase+"/systemctl_for_"+log)
+
                     if(os.system("ls results/"+test_target+"/failed/"+testcase+" &> /dev/null") == 0):
                         failed_num += 1
                         temp_failed.append(testcase)
@@ -191,7 +199,12 @@ class TestTarget():
                         if testcase not in os.listdir("logs_failed/"+test_target+"/"):
                             os.system("mkdir logs_failed/"+test_target+"/"+testcase+"/")
                         logs = os.listdir('logs/'+test_target+"/"+testcase+"/")
-                        os.system("cp logs/"+test_target+"/"+testcase+"/"+logs[len(logs)-1]+" logs_failed/"+test_target+"/"+testcase+"/")
+                        logs.sort()
+                        for i in range(len(logs)):
+                            if ord(logs[-1-i][0]) > ord('9') or os.path.getsize("logs/"+test_target+"/"+testcase+"/"+logs[-1-i]) == 0:
+                                continue
+                            os.system("cp logs/"+test_target+"/"+testcase+"/"+logs[-1-i]+" logs_failed/"+test_target+"/"+testcase+"/")
+                            break
                     if(os.system("ls results/"+test_target+"/succeed/"+testcase+" &> /dev/null") == 0):
                         temp_succeed.append(testcase)
                         success_num += 1
